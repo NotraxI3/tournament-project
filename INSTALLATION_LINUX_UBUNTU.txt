@@ -1,0 +1,663 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║     🐧 INSTALLATION SERVEUR LINUX UBUNTU - MARIADB + PHPMYADMIN 🐧      ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+
+📋 TABLE DES MATIÈRES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Prérequis
+2. Installation de la pile LAMP (Linux, Apache, MariaDB, PHP)
+3. Installation et configuration de phpMyAdmin
+4. Configuration d'Apache
+5. Configuration de MariaDB
+6. Installation du projet
+7. Configuration de la base de données via phpMyAdmin
+8. Configuration de l'application
+9. Tests et vérifications
+10. Sécurité
+11. Maintenance et sauvegardes
+12. Dépannage
+13. Commandes utiles
+
+
+1️⃣ PRÉREQUIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Ubuntu 20.04 LTS ou supérieur
+✓ Accès root ou sudo
+✓ Connexion Internet
+✓ Au moins 2 Go de RAM
+✓ 10 Go d'espace disque libre
+
+
+2️⃣ INSTALLATION DE LA PILE LAMP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 2.1 : Mise à jour du système
+────────────────────────────────────
+
+sudo apt update
+sudo apt upgrade -y
+
+
+Étape 2.2 : Installation d'Apache
+──────────────────────────────────
+
+sudo apt install apache2 -y
+sudo systemctl start apache2
+sudo systemctl enable apache2
+sudo systemctl enable apache2
+
+# Tester : http://localhost ou http://IP-SERVEUR
+
+
+Étape 2.3 : Installation de MariaDB
+────────────────────────────────────
+
+sudo apt install mariadb-server mariadb-client -y
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+sudo systemctl status mariadb
+
+# Sécuriser MariaDB
+sudo mysql_secure_installation
+
+Réponses :
+- Enter current password → [Entrée]
+- Switch to unix_socket → N
+- Change root password → Y
+- New password → [VotreMotDePasseRoot]
+- Remove anonymous users → Y
+- Disallow root login remotely → Y
+- Remove test database → Y
+- Reload privilege tables → Y
+
+
+Étape 2.4 : Installation de PHP
+────────────────────────────────
+
+sudo apt install php libapache2-mod-php php-mysql php-cli php-curl php-json php-mbstring php-xml php-zip php-gd -y
+
+php -v
+
+# Configurer Apache pour PHP
+sudo nano /etc/apache2/mods-enabled/dir.conf
+
+# Mettre index.php en premier :
+DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
+
+# Ctrl+O, Enter, Ctrl+X
+
+sudo systemctl restart apache2
+
+
+3️⃣ INSTALLATION DE PHPMYADMIN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 3.1 : Installer phpMyAdmin
+─────────────────────────────────
+
+sudo apt install phpmyadmin -y
+
+Pendant l'installation :
+1. Serveur web → [Espace] sur apache2, puis [Entrée]
+2. Configurer avec dbconfig-common → Oui
+3. Mot de passe phpMyAdmin → [MotDePasseSécurisé]
+
+
+Étape 3.2 : Activer phpMyAdmin
+───────────────────────────────
+
+sudo phpenmod mbstring
+sudo systemctl restart apache2
+
+# Tester : http://localhost/phpmyadmin ou http://IP-SERVEUR/phpmyadmin
+
+
+Étape 3.3 : Configurer root pour phpMyAdmin
+────────────────────────────────────────────
+
+sudo mysql -u root -p
+
+# Dans MariaDB :
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'VotreMotDePasseRoot123!';
+FLUSH PRIVILEGES;
+EXIT;
+
+# Se connecter sur phpMyAdmin :
+# Utilisateur : root
+# Mot de passe : VotreMotDePasseRoot123!
+
+
+Étape 3.4 : Créer un utilisateur admin (RECOMMANDÉ)
+────────────────────────────────────────────────────
+
+sudo mysql -u root -p
+
+CREATE USER 'admin'@'localhost' IDENTIFIED BY 'MotDePasseAdmin123!';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+EXIT;
+
+# Se connecter sur phpMyAdmin avec :
+# Utilisateur : admin
+# Mot de passe : MotDePasseAdmin123!
+
+
+4️⃣ CONFIGURATION D'APACHE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 4.1 : Activer les modules
+────────────────────────────────
+
+sudo a2enmod rewrite
+sudo a2enmod headers
+sudo systemctl restart apache2
+
+
+Étape 4.2 : Permissions
+───────────────────────
+
+sudo usermod -a -G www-data $USER
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
+
+
+5️⃣ CONFIGURATION DE MARIADB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 5.1 : Créer l'utilisateur et la base pour le projet
+──────────────────────────────────────────────────────────
+
+sudo mysql -u root -p
+
+# OU via phpMyAdmin (onglet SQL) :
+
+CREATE USER 'tournament_user'@'localhost' IDENTIFIED BY 'MotDePasseSecurise123!';
+CREATE DATABASE tournament_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON tournament_db.* TO 'tournament_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+
+Étape 5.2 : Vérifier dans phpMyAdmin
+─────────────────────────────────────
+
+1. Se connecter avec tournament_user
+2. La base tournament_db doit être visible
+
+
+6️⃣ INSTALLATION DU PROJET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 6.1 : Transférer les fichiers
+────────────────────────────────────
+
+Méthode A : SCP depuis Mac/Windows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Sur votre Mac :
+scp -r ~/Desktop/tournament-project utilisateur@IP-SERVEUR:/tmp/
+
+# Sur le serveur :
+sudo mv /tmp/tournament-project /var/www/html/
+
+
+Méthode B : Git
+~~~~~~~~~~~~~~~
+cd /var/www/html
+sudo git clone https://github.com/votre-repo/tournament-project.git
+
+
+Méthode C : FileZilla/WinSCP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. Connecter via SFTP à votre serveur
+2. Uploader le dossier tournament-project dans /var/www/html/
+
+
+Étape 6.2 : Permissions
+───────────────────────
+
+sudo chown -R www-data:www-data /var/www/html/tournament-project
+sudo find /var/www/html/tournament-project -type d -exec chmod 755 {} \;
+sudo find /var/www/html/tournament-project -type f -exec chmod 644 {} \;
+
+
+7️⃣ CONFIGURATION BASE DE DONNÉES VIA PHPMYADMIN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 7.1 : Importer le schéma (MÉTHODE GRAPHIQUE)
+───────────────────────────────────────────────────
+
+1. Ouvrir phpMyAdmin : http://IP-SERVEUR/phpmyadmin
+
+2. Se connecter avec :
+   - Utilisateur : tournament_user
+   - Mot de passe : MotDePasseSecurise123!
+
+3. Cliquer sur "tournament_db" dans le menu de gauche
+
+4. Cliquer sur l'onglet "Importer" en haut
+
+5. Section "Fichier à importer" :
+   - Cliquer sur "Choisir un fichier"
+   - Sélectionner : tournament_db.sql
+     (depuis /var/www/html/tournament-project/database/)
+
+6. Options :
+   - Format : SQL
+   - Laisser les autres options par défaut
+
+7. Cliquer sur "Exécuter" en bas
+
+8. Message de succès : "Importation réussie, X requêtes exécutées"
+
+
+Étape 7.2 : Vérifier l'importation
+───────────────────────────────────
+
+Dans phpMyAdmin :
+
+1. Cliquer sur "tournament_db" → "Structure"
+
+2. Vous devez voir 4 tables :
+   ✓ tournaments
+   ✓ participants
+   ✓ pools
+   ✓ pool_participants
+
+3. Cliquer sur "tournaments" → icône "Afficher"
+   → 4 tournois : Fortnite, Mario Kart, Smash Bros, FC 26
+
+4. Cliquer sur "participants" → icône "Afficher"
+   → 15 participants avec leurs statuts
+
+
+Étape 7.3 : Tester des requêtes SQL
+────────────────────────────────────
+
+Dans phpMyAdmin, onglet "SQL" :
+
+# Compter les participants
+SELECT COUNT(*) as total FROM participants;
+
+# Voir les tournois
+SELECT * FROM tournaments;
+
+# Statistiques par tournoi
+SELECT 
+    t.name,
+    COUNT(p.id) as participants,
+    SUM(CASE WHEN p.status = 'En lice' THEN 1 ELSE 0 END) as en_lice
+FROM tournaments t
+LEFT JOIN participants p ON t.id = p.tournament_id
+GROUP BY t.id, t.name;
+
+
+8️⃣ CONFIGURATION DE L'APPLICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 8.1 : Configurer database.php
+────────────────────────────────────
+
+sudo nano /var/www/html/tournament-project/backend/config/database.php
+
+Contenu :
+<?php
+class Database {
+    private $host = 'localhost';
+    private $db_name = 'tournament_db';
+    private $username = 'tournament_user';
+    private $password = 'MotDePasseSecurise123!';
+    private $charset = 'utf8mb4';
+    public $conn = null;
+
+    public function getConnection() {
+        try {
+            $dsn = "mysql:host=" . $this->host . ";dbname=" . $this->db_name . ";charset=" . $this->charset;
+            $this->conn = new PDO($dsn, $this->username, $this->password);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return $this->conn;
+        } catch(PDOException $exception) {
+            echo "Erreur de connexion: " . $exception->getMessage();
+            return null;
+        }
+    }
+}
+?>
+
+# Ctrl+O, Enter, Ctrl+X
+
+
+Étape 8.2 : Configurer l'URL de l'API
+──────────────────────────────────────
+
+sudo nano /var/www/html/tournament-project/frontend/tournament-dashboard.html
+
+# Chercher (ligne ~15) :
+const API_BASE_URL = 'http://localhost/tournament-project/backend/api';
+
+# Modifier selon votre IP :
+const API_BASE_URL = 'http://192.168.1.100/tournament-project/backend/api';
+
+# OU avec nom de domaine :
+const API_BASE_URL = 'http://votre-domaine.com/backend/api';
+
+# Ctrl+O, Enter, Ctrl+X
+
+
+Étape 8.3 : Créer/Vérifier .htaccess
+─────────────────────────────────────
+
+sudo nano /var/www/html/tournament-project/backend/api/.htaccess
+
+Contenu :
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php/$1 [QSA,L]
+
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+AddDefaultCharset UTF-8
+
+# Ctrl+O, Enter, Ctrl+X
+
+
+9️⃣ TESTS ET VÉRIFICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 9.1 : Tester MariaDB
+───────────────────────────
+
+mysql -u tournament_user -p tournament_db -e "SELECT COUNT(*) FROM participants;"
+
+# Doit afficher : 15
+
+
+Étape 9.2 : Tester l'API
+─────────────────────────
+
+curl http://localhost/tournament-project/backend/api/index.php/tournaments
+
+# Doit retourner du JSON avec les 4 tournois
+
+curl http://localhost/tournament-project/backend/api/index.php/stats
+
+# Doit retourner les statistiques
+
+
+Étape 9.3 : Tester l'interface web
+───────────────────────────────────
+
+Navigateur : http://IP-SERVEUR/tournament-project/frontend/tournament-dashboard.html
+
+✅ Doit afficher :
+- 4 cartes de tournois
+- Statistiques (Total, En lice, Éliminés)
+- 2 graphiques
+
+
+Étape 9.4 : Test complet des fonctionnalités
+─────────────────────────────────────────────
+
+1. Cliquer sur un tournoi → Liste participants
+2. Ajouter un participant → S'inscrit en BDD
+3. Vérifier dans phpMyAdmin → Le nouveau joueur apparaît
+4. Modifier statut → Mise à jour en BDD
+5. Créer poules (4+ joueurs) → Poules générées
+
+
+🔟 SÉCURITÉ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 10.1 : Sécuriser phpMyAdmin
+──────────────────────────────────
+
+# Changer l'URL d'accès
+sudo nano /etc/apache2/conf-available/phpmyadmin.conf
+
+# Ajouter après la ligne "Alias /phpmyadmin" :
+Alias /admin-secret-2024 /usr/share/phpmyadmin
+
+# Commenter la ligne originale :
+# Alias /phpmyadmin /usr/share/phpmyadmin
+
+sudo systemctl restart apache2
+
+# Nouvelle URL : http://IP-SERVEUR/admin-secret-2024
+
+
+# Ajouter authentification .htaccess
+sudo nano /usr/share/phpmyadmin/.htaccess
+
+Contenu :
+AuthType Basic
+AuthName "Zone d'administration"
+AuthUserFile /etc/phpmyadmin/.htpasswd
+Require valid-user
+
+sudo htpasswd -c /etc/phpmyadmin/.htpasswd adminpma
+# Entrer un mot de passe
+
+sudo nano /etc/apache2/conf-available/phpmyadmin.conf
+
+# Dans <Directory /usr/share/phpmyadmin> :
+AllowOverride All
+
+sudo systemctl restart apache2
+
+
+Étape 10.2 : Pare-feu UFW
+──────────────────────────
+
+sudo apt install ufw -y
+sudo ufw allow ssh
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+
+
+Étape 10.3 : Sécuriser MariaDB
+───────────────────────────────
+
+sudo nano /etc/mysql/mariadb.conf.d/50-server.cnf
+
+# S'assurer de :
+bind-address = 127.0.0.1
+
+sudo systemctl restart mariadb
+
+
+Étape 10.4 : Protéger les dossiers sensibles
+─────────────────────────────────────────────
+
+sudo nano /var/www/html/tournament-project/backend/config/.htaccess
+
+Contenu :
+Order deny,allow
+Deny from all
+
+sudo nano /var/www/html/tournament-project/backend/classes/.htaccess
+
+Contenu :
+Order deny,allow
+Deny from all
+
+
+1️⃣1️⃣ MAINTENANCE ET SAUVEGARDES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Étape 11.1 : Sauvegarde manuelle via phpMyAdmin
+────────────────────────────────────────────────
+
+1. phpMyAdmin → tournament_db
+2. Onglet "Exporter"
+3. Méthode : Rapide
+4. Format : SQL
+5. Cliquer "Exécuter"
+6. Fichier téléchargé : tournament_db.sql
+
+
+Étape 11.2 : Sauvegarde automatique
+────────────────────────────────────
+
+sudo nano /usr/local/bin/backup-tournament.sh
+
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/var/backups/tournament"
+DB_NAME="tournament_db"
+DB_USER="tournament_user"
+DB_PASS="MotDePasseSecurise123!"
+
+mkdir -p $BACKUP_DIR
+
+mysqldump -u $DB_USER -p$DB_PASS $DB_NAME > $BACKUP_DIR/db_$DATE.sql
+tar -czf $BACKUP_DIR/files_$DATE.tar.gz /var/www/html/tournament-project
+
+find $BACKUP_DIR -name "db_*.sql" -mtime +7 -delete
+find $BACKUP_DIR -name "files_*.tar.gz" -mtime +7 -delete
+
+echo "Sauvegarde : $DATE"
+
+sudo chmod +x /usr/local/bin/backup-tournament.sh
+sudo /usr/local/bin/backup-tournament.sh
+
+# Planifier avec cron
+sudo crontab -e
+
+# Ajouter :
+0 2 * * * /usr/local/bin/backup-tournament.sh >> /var/log/backup-tournament.log 2>&1
+
+
+Étape 11.3 : Restaurer une sauvegarde
+──────────────────────────────────────
+
+Via phpMyAdmin :
+1. tournament_db → Importer
+2. Choisir le fichier .sql
+3. Exécuter
+
+Via ligne de commande :
+mysql -u tournament_user -p tournament_db < backup.sql
+
+
+1️⃣2️⃣ DÉPANNAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problème 1 : phpMyAdmin ne s'affiche pas
+─────────────────────────────────────────
+
+sudo ln -s /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/phpmyadmin.conf
+sudo a2enconf phpmyadmin
+sudo systemctl restart apache2
+
+
+Problème 2 : Erreur "Connexion refusée" MariaDB
+────────────────────────────────────────────────
+
+sudo systemctl status mariadb
+sudo systemctl start mariadb
+sudo tail -f /var/log/mysql/error.log
+
+
+Problème 3 : API retourne 500
+──────────────────────────────
+
+sudo tail -50 /var/log/apache2/tournament_error.log
+sudo chown -R www-data:www-data /var/www/html/tournament-project
+
+
+Problème 4 : Données ne s'affichent pas
+────────────────────────────────────────
+
+# Vérifier l'URL de l'API dans le HTML
+# Ouvrir F12 → Console dans le navigateur
+# Tester l'API directement
+
+
+1️⃣3️⃣ COMMANDES UTILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Services :
+sudo systemctl start/stop/restart/status apache2
+sudo systemctl start/stop/restart/status mariadb
+
+Logs :
+sudo tail -f /var/log/apache2/error.log
+sudo tail -f /var/log/mysql/error.log
+
+MariaDB :
+mysql -u tournament_user -p tournament_db
+mysqldump -u tournament_user -p tournament_db > backup.sql
+mysql -u tournament_user -p tournament_db < backup.sql
+
+Permissions :
+sudo chown -R www-data:www-data /var/www/html/tournament-project
+sudo chmod -R 755 /var/www/html/tournament-project
+
+Réseau :
+ip addr show
+sudo ufw status
+sudo netstat -tulpn
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+✅ CHECKLIST FINALE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Ubuntu à jour
+[ ] Apache installé et démarré
+[ ] MariaDB installé et démarré
+[ ] PHP installé (7.4+)
+[ ] phpMyAdmin accessible
+[ ] Base tournament_db créée
+[ ] Tables importées (4 tables, 15+ enregistrements)
+[ ] Utilisateur tournament_user créé
+[ ] Fichiers projet copiés
+[ ] Permissions correctes (www-data)
+[ ] database.php configuré
+[ ] URL API configurée dans HTML
+[ ] API testée (retourne JSON)
+[ ] Interface web accessible
+[ ] Fonctionnalités testées
+[ ] Pare-feu configuré
+[ ] Sauvegardes planifiées
+
+✅ Tout coché ? Application prête !
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+🌐 ACCÈS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Interface :
+http://IP-SERVEUR/tournament-project/frontend/tournament-dashboard.html
+
+API :
+http://IP-SERVEUR/tournament-project/backend/api/index.php
+
+phpMyAdmin :
+http://IP-SERVEUR/phpmyadmin
+OU
+http://IP-SERVEUR/admin-secret-2024 (si sécurisé)
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+Version : 1.0.0 - MariaDB Edition
+Testé sur : Ubuntu 20.04 LTS, 22.04 LTS
+Date : 2024
+
+🐧 BON DÉPLOIEMENT ! 🎮🏆
+
+═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,17 @@
+# Configuration Apache pour l'API REST
+
+# Activer la réécriture d'URL
+RewriteEngine On
+
+# Rediriger toutes les requêtes vers index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php/$1 [QSA,L]
+
+# Headers CORS
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+# Charset UTF-8
+AddDefaultCharset UTF-8

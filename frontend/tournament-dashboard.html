@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Tournois Esports</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/dist/Recharts.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+
+        // Configuration de l'API - IMPORTANT: Modifier cette URL selon votre installation
+        const API_BASE_URL = 'http://localhost/tournament-project/backend/api';
+
+        const TournamentDashboard = () => {
+          // États pour les données
+          const [tournaments, setTournaments] = useState([]);
+          const [participants, setParticipants] = useState([]);
+          const [pools, setPools] = useState([]);
+          const [stats, setStats] = useState({});
+          const [selectedTournament, setSelectedTournament] = useState(null);
+          const [newParticipant, setNewParticipant] = useState('');
+          const [loading, setLoading] = useState(false);
+          const [error, setError] = useState(null);
+
+          // Fonction pour effectuer les requêtes API
+          const apiCall = async (endpoint, options = {}) => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...options.headers
+                },
+                ...options
+              });
+
+              if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+              }
+
+              const data = await response.json();
+              return data;
+            } catch (error) {
+              console.error('Erreur API:', error);
+              setError(error.message);
+              throw error;
+            }
+          };
+
+          // Charger les données initiales
+          useEffect(() => {
+            loadInitialData();
+          }, []);
+
+          const loadInitialData = async () => {
+            setLoading(true);
+            try {
+              const [tournamentsData, statsData] = await Promise.all([
+                apiCall('tournaments'),
+                apiCall('stats')
+              ]);
+              
+              setTournaments(tournamentsData);
+              setStats(statsData);
+              setError(null);
+            } catch (error) {
+              setError('Erreur lors du chargement des données. Vérifiez que le serveur PHP est démarré.');
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          // Charger les participants d'un tournoi
+          const loadTournamentParticipants = async (tournamentId) => {
+            try {
+              const participantsData = await apiCall(`participants?tournament_id=${tournamentId}`);
+              setParticipants(participantsData);
+              
+              const poolsData = await apiCall(`pools?tournament_id=${tournamentId}`);
+              setPools(poolsData);
+            } catch (error) {
+              setError('Erreur lors du chargement des participants');
+            }
+          };
+
+          // Ajouter un nouveau participant
+          const addParticipant = async (tournamentId) => {
+            if (!newParticipant.trim()) return;
+
+            setLoading(true);
+            try {
+              await apiCall('participants', {
+                method: 'POST',
+                body: JSON.stringify({
+                  tournament_id: tournamentId,
+                  name: newParticipant.trim(),
+                  status: 'En lice',
+                  inscription_date: new Date().toISOString().split('T')[0]
+                })
+              });
+
+              setNewParticipant('');
+              await loadTournamentParticipants(tournamentId);
+              await loadInitialData();
+            } catch (error) {
+              setError('Erreur lors de l\'ajout du participant');
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          // Mettre à jour le statut d'un participant
+          const updateParticipantStatus = async (participantId, tournamentId, newStatus) => {
+            try {
+              await apiCall('participants', {
+                method: 'PUT',
+                body: JSON.stringify({
+                  id: participantId,
+                  tournament_id: tournamentId,
+                  status: newStatus
+                })
+              });
+
+              await loadTournamentParticipants(tournamentId);
+              await loadInitialData();
+            } catch (error) {
+              setError('Erreur lors de la mise à jour du statut');
+            }
+          };
+
+          // Créer des poules aléatoirement
+          const createRandomPools = async (tournamentId, poolSize = 4) => {
+            const activePlayers = participants.filter(p => p.status === 'En lice');
+            
+            if (activePlayers.length < poolSize) {
+              setError(`Il faut au moins ${poolSize} joueurs en lice pour créer des poules.`);
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await apiCall('pools', {
+                method: 'POST',
+                body: JSON.stringify({
+                  tournament_id: tournamentId,
+                  pool_size: poolSize
+                })
+              });
+
+              await loadTournamentParticipants(tournamentId);
+              setError(null);
+            } catch (error) {
+              setError('Erreur lors de la création des poules');
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          // Supprimer un participant
+          const deleteParticipant = async (participantId, tournamentId) => {
+            if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce participant ?')) return;
+
+            try {
+              await apiCall('participants', {
+                method: 'DELETE',
+                body: JSON.stringify({
+                  id: participantId,
+                  tournament_id: tournamentId
+                })
+              });
+
+              await loadTournamentParticipants(tournamentId);
+              await loadInitialData();
+            } catch (error) {
+              setError('Erreur lors de la suppression du participant');
+            }
+          };
+
+          // Sélectionner un tournoi
+          const selectTournament = async (tournamentId) => {
+            setSelectedTournament(tournamentId);
+            await loadTournamentParticipants(tournamentId);
+          };
+
+          // Données pour les graphiques
+          const chartData = useMemo(() => {
+            if (!stats.tournament_stats) return [];
+            
+            return stats.tournament_stats.map(tournament => ({
+              name: tournament.name.split(' ')[0],
+              participants: tournament.total,
+              enLice: tournament.en_lice,
+              elimines: tournament.elimines
+            }));
+          }, [stats]);
+
+          const statusData = useMemo(() => [
+            { name: 'En lice', value: stats.active_players || 0, color: '#10b981' },
+            { name: 'Éliminés', value: stats.eliminated_players || 0, color: '#ef4444' }
+          ], [stats]);
+
+          // Vue d'ensemble
+          const renderOverview = () => (
+            <div className="space-y-6">
+              {/* Statistiques générales */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Inscrits</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.total_participants || 0}</p>
+                    </div>
+                    <span className="text-2xl">👥</span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">En Lice</p>
+                      <p className="text-2xl font-bold text-green-600">{stats.active_players || 0}</p>
+                    </div>
+                    <span className="text-2xl">✅</span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Éliminés</p>
+                      <p className="text-2xl font-bold text-red-600">{stats.eliminated_players || 0}</p>
+                    </div>
+                    <span className="text-2xl">❌</span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Tournois</p>
+                      <p className="text-2xl font-bold text-purple-600">{stats.total_tournaments || 0}</p>
+                    </div>
+                    <span className="text-2xl">🏆</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Graphiques */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold mb-4">Participants par Tournoi</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="enLice" fill="#10b981" name="En lice" />
+                      <Bar dataKey="elimines" fill="#ef4444" name="Éliminés" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold mb-4">Répartition des Statuts</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        dataKey="value"
+                        label={(entry) => `${entry.name}: ${entry.value}`}
+                      >
+                        {statusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Liste des tournois */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold">Tournois Disponibles</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
+                  {tournaments.map(tournament => {
+                    const tournamentStats = stats.tournament_stats?.find(t => t.id === tournament.id) || {};
+                    return (
+                      <div 
+                        key={tournament.id} 
+                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => selectTournament(tournament.id)}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-2xl">{tournament.icon}</span>
+                          <span className="text-sm text-gray-400">👁️</span>
+                        </div>
+                        <h4 className="font-semibold text-gray-900 mb-2">{tournament.name}</h4>
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>Inscrits: {tournamentStats.total || 0}</span>
+                          <span>En lice: {tournamentStats.en_lice || 0}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+
+          // Vue détail d'un tournoi
+          const renderTournamentDetail = () => {
+            const tournament = tournaments.find(t => t.id === selectedTournament);
+            if (!tournament) return null;
+
+            return (
+              <div className="space-y-6">
+                {/* En-tête du tournoi */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-3xl">{tournament.icon}</span>
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900">{tournament.name}</h2>
+                        <p className="text-gray-600">{participants.length} participants inscrits</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => createRandomPools(selectedTournament)}
+                        disabled={loading}
+                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2"
+                      >
+                        <span>🔀</span>
+                        <span>Créer Poules</span>
+                      </button>
+                      <button
+                        onClick={() => setSelectedTournament(null)}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                      >
+                        Retour
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inscription d'un nouveau participant */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="mr-2">➕</span>
+                    Inscription Nouveau Participant (Opérateur uniquement)
+                  </h3>
+                  <div className="flex space-x-3">
+                    <input
+                      type="text"
+                      placeholder="Nom du joueur"
+                      value={newParticipant}
+                      onChange={(e) => setNewParticipant(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onKeyPress={(e) => e.key === 'Enter' && addParticipant(selectedTournament)}
+                      disabled={loading}
+                    />
+                    <button
+                      onClick={() => addParticipant(selectedTournament)}
+                      disabled={loading || !newParticipant.trim()}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    >
+                      Inscrire
+                    </button>
+                  </div>
+                </div>
+
+                {/* Liste des participants */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <div className="p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold">Participants Inscrits</h3>
+                  </div>
+                  <div className="divide-y divide-gray-200">
+                    {participants.map(participant => (
+                      <div key={participant.id} className="p-4 flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{participant.name}</h4>
+                          <p className="text-sm text-gray-500">Inscrit le {participant.inscription_date}</p>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            participant.status === 'En lice' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {participant.status}
+                          </span>
+                          <select
+                            value={participant.status}
+                            onChange={(e) => updateParticipantStatus(participant.id, selectedTournament, e.target.value)}
+                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            disabled={loading}
+                          >
+                            <option value="En lice">En lice</option>
+                            <option value="Éliminé">Éliminé</option>
+                          </select>
+                          <button
+                            onClick={() => deleteParticipant(participant.id, selectedTournament)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                            disabled={loading}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Poules */}
+                {pools.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div className="p-6 border-b border-gray-200">
+                      <h3 className="text-lg font-semibold">Poules Générées</h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {pools.map(pool => (
+                          <div key={pool.id} className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="font-semibold text-center mb-3 text-blue-600">{pool.name}</h4>
+                            <div className="space-y-2">
+                              {pool.participants && pool.participants.map((player, idx) => (
+                                <div key={idx} className="bg-gray-50 p-2 rounded text-center">
+                                  {player.name}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          return (
+            <div className="min-h-screen bg-gray-50 p-8">
+              {/* En-tête */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-3xl">🎮</span>
+                    <div>
+                      <h1 className="text-3xl font-bold text-gray-800">Dashboard Tournois Esports</h1>
+                      <p className="text-gray-600">Gestion des inscriptions et des tournois - Connecté à MySQL</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={loadInitialData}
+                      disabled={loading}
+                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <span>🔄</span>
+                      <span>Actualiser</span>
+                    </button>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Dernière mise à jour</p>
+                      <p className="text-lg font-semibold">{new Date().toLocaleDateString('fr-FR')}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alertes d'erreur */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span className="text-red-500 mr-2">⚠️</span>
+                    <span className="text-red-800">{error}</span>
+                  </div>
+                  <button 
+                    onClick={() => setError(null)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Indicateur de chargement */}
+              {loading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center">
+                  <span className="text-blue-500 mr-2">⏳</span>
+                  <span className="text-blue-800">Chargement en cours...</span>
+                </div>
+              )}
+
+              {/* Contenu principal */}
+              {selectedTournament ? renderTournamentDetail() : renderOverview()}
+            </div>
+          );
+        };
+
+        // Rendu de l'application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TournamentDashboard />);
+    </script>
+</body>
+</html>
