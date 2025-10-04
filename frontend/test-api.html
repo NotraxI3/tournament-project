@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API FC26</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #059669;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .participant {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #e5e7eb;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test de connexion API - FC26</h1>
+        <p>Cette page permet de tester la connexion à l'API et d'identifier les problèmes.</p>
+        
+        <button onclick="testTournaments()">1️⃣ Tester /tournaments</button>
+        <button onclick="testStats()">2️⃣ Tester /stats</button>
+        <button onclick="testFC26Participants()">3️⃣ Tester FC26 participants</button>
+        <button onclick="testFC26Pools()">4️⃣ Tester FC26 pools</button>
+        <button onclick="clearResult()">🗑️ Effacer</button>
+        
+        <div id="result"></div>
+        <div id="participants"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://192.168.1.182/tournament-project/backend/api/index.php';
+        
+        function log(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            resultDiv.innerHTML += `<div class="${color}">[${timestamp}] ${message}</div>`;
+        }
+        
+        function clearResult() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('participants').innerHTML = '';
+        }
+        
+        async function testAPI(endpoint, description) {
+            log(`\n========================================`);
+            log(`TEST: ${description}`);
+            log(`URL: ${API_BASE_URL}/${endpoint}`);
+            log(`========================================\n`);
+            
+            try {
+                log('📡 Envoi de la requête...');
+                const response = await fetch(`${API_BASE_URL}/${endpoint}`);
+                
+                log(`✅ Statut HTTP: ${response.status} ${response.statusText}`, 'success');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ Erreur serveur:`, 'error');
+                    log(errorText, 'error');
+                    return null;
+                }
+                
+                const data = await response.json();
+                log(`✅ Données reçues (${Array.isArray(data) ? data.length + ' éléments' : 'objet'})`, 'success');
+                log(JSON.stringify(data, null, 2));
+                
+                return data;
+            } catch (error) {
+                log(`❌ ERREUR: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+                return null;
+            }
+        }
+        
+        async function testTournaments() {
+            clearResult();
+            await testAPI('tournaments', 'Liste des tournois');
+        }
+        
+        async function testStats() {
+            clearResult();
+            await testAPI('stats', 'Statistiques générales');
+        }
+        
+        async function testFC26Participants() {
+            clearResult();
+            const data = await testAPI('participants?tournament_id=fc26', 'Participants FC26');
+            
+            if (data && Array.isArray(data)) {
+                log(`\n📊 AFFICHAGE DES PARTICIPANTS:\n`);
+                const participantsDiv = document.getElementById('participants');
+                participantsDiv.innerHTML = '<h2>Liste des participants FC26:</h2>';
+                
+                data.forEach((p, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'participant';
+                    div.innerHTML = `
+                        <strong>${index + 1}. ${p.name}</strong><br>
+                        ID: ${p.id}<br>
+                        Status: ${p.status}<br>
+                        Date: ${p.inscription_date}<br>
+                        Nom brut: ${JSON.stringify(p.name)}
+                    `;
+                    participantsDiv.appendChild(div);
+                });
+            }
+        }
+        
+        async function testFC26Pools() {
+            clearResult();
+            await testAPI('pools?tournament_id=fc26', 'Poules FC26');
+        }
+        
+        // Test automatique au chargement
+        window.onload = function() {
+            log('✅ Page de test chargée avec succès', 'success');
+            log('Cliquez sur les boutons ci-dessus pour tester l\'API');
+        };
+    </script>
+</body>
+</html>

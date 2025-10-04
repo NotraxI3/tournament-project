@@ -208,7 +208,7 @@ sudo mv /tmp/tournament-project /var/www/html/
 Méthode B : Git
 ~~~~~~~~~~~~~~~
 cd /var/www/html
-sudo git clone https://github.com/votre-repo/tournament-project.git
+sudo git clone https://github.com/notraxi3/tournament-project.git
 
 
 Méthode C : FileZilla/WinSCP

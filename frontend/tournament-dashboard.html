@@ -3,98 +3,246 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Tournois Esports</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.8.0/dist/Recharts.js"></script>
+    <title>Dashboard Tournois - Debug Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-100">
+    <div id="root">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="text-6xl mb-4">⏳</div>
+                <div class="text-xl text-gray-700">Initialisation du dashboard...</div>
+                <div id="init-status" class="text-sm text-gray-500 mt-4">Chargement des bibliothèques...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+
+    <script>
+        // Vérification des bibliothèques
+        const statusDiv = document.getElementById('init-status');
+        
+        if (typeof React === 'undefined') {
+            statusDiv.innerHTML = '❌ ERREUR: React non chargé';
+            statusDiv.className = 'text-red-600 font-bold mt-4';
+        } else if (typeof ReactDOM === 'undefined') {
+            statusDiv.innerHTML = '❌ ERREUR: ReactDOM non chargé';
+            statusDiv.className = 'text-red-600 font-bold mt-4';
+        } else if (typeof Babel === 'undefined') {
+            statusDiv.innerHTML = '❌ ERREUR: Babel non chargé';
+            statusDiv.className = 'text-red-600 font-bold mt-4';
+        } else {
+            statusDiv.innerHTML = '✅ Bibliothèques chargées - Démarrage...';
+            statusDiv.className = 'text-green-600 font-bold mt-4';
+        }
+    </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-        const { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+        const { useState, useEffect } = React;
+        const API_BASE_URL = 'http://192.168.1.182/tournament-project/backend/api/index.php';
 
-        // Configuration de l'API - IMPORTANT: Modifier cette URL selon votre installation
-        const API_BASE_URL = 'http://localhost/tournament-project/backend/api';
+        // Composant d'affichage des erreurs
+        function ErrorDisplay({ error, onClose }) {
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-auto">
+                <div className="bg-red-600 text-white p-4 flex justify-between items-center">
+                  <h2 className="text-xl font-bold">⚠️ ERREUR DÉTECTÉE</h2>
+                  <button onClick={onClose} className="text-white text-2xl">×</button>
+                </div>
+                <div className="p-6">
+                  <div className="bg-red-50 border-2 border-red-300 rounded p-4 mb-4">
+                    <h3 className="font-bold text-red-800 mb-2">Message d'erreur :</h3>
+                    <p className="text-red-700 font-mono text-sm">{error.message}</p>
+                  </div>
+                  
+                  {error.stack && (
+                    <div className="bg-gray-50 border border-gray-300 rounded p-4 mb-4">
+                      <h3 className="font-bold text-gray-800 mb-2">Stack trace :</h3>
+                      <pre className="text-xs overflow-auto">{error.stack}</pre>
+                    </div>
+                  )}
+                  
+                  {error.url && (
+                    <div className="bg-blue-50 border border-blue-300 rounded p-4 mb-4">
+                      <h3 className="font-bold text-blue-800 mb-2">URL appelée :</h3>
+                      <p className="text-blue-700 font-mono text-sm break-all">{error.url}</p>
+                    </div>
+                  )}
+                  
+                  {error.response && (
+                    <div className="bg-yellow-50 border border-yellow-300 rounded p-4 mb-4">
+                      <h3 className="font-bold text-yellow-800 mb-2">Réponse serveur :</h3>
+                      <pre className="text-xs overflow-auto max-h-60">{error.response}</pre>
+                    </div>
+                  )}
+                  
+                  <div className="bg-green-50 border border-green-300 rounded p-4">
+                    <h3 className="font-bold text-green-800 mb-2">💡 Solutions possibles :</h3>
+                    <ul className="text-sm text-green-700 list-disc pl-5 space-y-1">
+                      <li>Vérifier que Apache est démarré : <code>sudo systemctl status apache2</code></li>
+                      <li>Vérifier que MariaDB est démarré : <code>sudo systemctl status mariadb</code></li>
+                      <li>Tester l'API dans le navigateur : <a href={API_BASE_URL + '/tournaments'} target="_blank" className="text-blue-600 underline">{API_BASE_URL}/tournaments</a></li>
+                      <li>Voir les logs : <code>sudo tail -50 /var/log/apache2/error.log</code></li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="bg-gray-100 p-4 flex justify-end space-x-3">
+                  <button 
+                    onClick={onClose}
+                    className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+                  >
+                    Fermer
+                  </button>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    🔄 Recharger la page
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
 
-        const TournamentDashboard = () => {
-          // États pour les données
+        function TournamentDashboard() {
           const [tournaments, setTournaments] = useState([]);
           const [participants, setParticipants] = useState([]);
           const [pools, setPools] = useState([]);
           const [stats, setStats] = useState({});
           const [selectedTournament, setSelectedTournament] = useState(null);
           const [newParticipant, setNewParticipant] = useState('');
-          const [loading, setLoading] = useState(false);
+          const [loading, setLoading] = useState(true);
           const [error, setError] = useState(null);
+          const [debugInfo, setDebugInfo] = useState([]);
 
-          // Fonction pour effectuer les requêtes API
+          const addDebug = (message, type = 'info') => {
+            console.log(`[${type.toUpperCase()}]`, message);
+            setDebugInfo(prev => [...prev, { 
+              time: new Date().toLocaleTimeString(), 
+              message, 
+              type 
+            }]);
+          };
+
           const apiCall = async (endpoint, options = {}) => {
+            const url = `${API_BASE_URL}/${endpoint}`;
+            addDebug(`📡 Appel API: ${url}`, 'info');
+            
             try {
-              const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...options.headers
-                },
+              const response = await fetch(url, {
+                headers: { 'Content-Type': 'application/json', ...options.headers },
                 ...options
               });
-
+              
+              addDebug(`📥 Réponse HTTP: ${response.status} ${response.statusText}`, 
+                response.ok ? 'success' : 'error');
+              
               if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
+                const errorText = await response.text();
+                throw {
+                  message: `Erreur HTTP ${response.status}: ${response.statusText}`,
+                  url: url,
+                  response: errorText.substring(0, 500),
+                  stack: new Error().stack
+                };
               }
-
+              
               const data = await response.json();
+              addDebug(`✅ Données reçues: ${JSON.stringify(data).substring(0, 100)}...`, 'success');
+              
+              // Décoder les entités HTML
+              if (Array.isArray(data)) {
+                return data.map(item => ({
+                  ...item,
+                  name: item.name ? decodeHtmlEntities(item.name) : item.name
+                }));
+              }
+              
               return data;
-            } catch (error) {
-              console.error('Erreur API:', error);
-              setError(error.message);
-              throw error;
+            } catch (err) {
+              addDebug(`❌ Erreur: ${err.message || err}`, 'error');
+              
+              if (typeof err === 'object' && err.message) {
+                setError(err);
+              } else {
+                setError({
+                  message: String(err),
+                  url: url,
+                  stack: new Error().stack
+                });
+              }
+              throw err;
             }
           };
 
-          // Charger les données initiales
+          function decodeHtmlEntities(text) {
+            if (!text) return text;
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.innerHTML = text;
+              return textarea.value;
+            } catch (e) {
+              addDebug(`⚠️ Erreur décodage: ${e.message}`, 'warning');
+              return text;
+            }
+          }
+
           useEffect(() => {
+            addDebug('🚀 Composant monté - Début chargement', 'info');
             loadInitialData();
           }, []);
 
           const loadInitialData = async () => {
             setLoading(true);
+            setError(null);
+            addDebug('⏳ Chargement des données initiales...', 'info');
+            
             try {
               const [tournamentsData, statsData] = await Promise.all([
                 apiCall('tournaments'),
                 apiCall('stats')
               ]);
-              
               setTournaments(tournamentsData);
               setStats(statsData);
-              setError(null);
-            } catch (error) {
-              setError('Erreur lors du chargement des données. Vérifiez que le serveur PHP est démarré.');
+              addDebug('✅ Données initiales chargées avec succès', 'success');
+            } catch (err) {
+              addDebug('❌ Échec du chargement initial', 'error');
             } finally {
               setLoading(false);
             }
           };
 
-          // Charger les participants d'un tournoi
           const loadTournamentParticipants = async (tournamentId) => {
+            setLoading(true);
+            setError(null);
+            addDebug(`📂 Chargement du tournoi: ${tournamentId}`, 'info');
+            
             try {
-              const participantsData = await apiCall(`participants?tournament_id=${tournamentId}`);
-              setParticipants(participantsData);
+              const [participantsData, poolsData] = await Promise.all([
+                apiCall(`participants?tournament_id=${tournamentId}`),
+                apiCall(`pools?tournament_id=${tournamentId}`)
+              ]);
               
-              const poolsData = await apiCall(`pools?tournament_id=${tournamentId}`);
-              setPools(poolsData);
-            } catch (error) {
-              setError('Erreur lors du chargement des participants');
+              addDebug(`✅ ${participantsData.length} participants chargés`, 'success');
+              setParticipants(participantsData || []);
+              setPools(poolsData || []);
+            } catch (err) {
+              addDebug(`❌ Erreur chargement tournoi`, 'error');
+              setParticipants([]);
+              setPools([]);
+            } finally {
+              setLoading(false);
             }
           };
 
-          // Ajouter un nouveau participant
           const addParticipant = async (tournamentId) => {
             if (!newParticipant.trim()) return;
-
             setLoading(true);
             try {
               await apiCall('participants', {
@@ -106,18 +254,14 @@
                   inscription_date: new Date().toISOString().split('T')[0]
                 })
               });
-
               setNewParticipant('');
               await loadTournamentParticipants(tournamentId);
               await loadInitialData();
-            } catch (error) {
-              setError('Erreur lors de l\'ajout du participant');
             } finally {
               setLoading(false);
             }
           };
 
-          // Mettre à jour le statut d'un participant
           const updateParticipantStatus = async (participantId, tournamentId, newStatus) => {
             try {
               await apiCall('participants', {
@@ -128,395 +272,304 @@
                   status: newStatus
                 })
               });
-
               await loadTournamentParticipants(tournamentId);
               await loadInitialData();
-            } catch (error) {
-              setError('Erreur lors de la mise à jour du statut');
+            } catch (err) {
+              // Erreur déjà gérée
             }
           };
 
-          // Créer des poules aléatoirement
-          const createRandomPools = async (tournamentId, poolSize = 4) => {
+          const createRandomPools = async (tournamentId) => {
             const activePlayers = participants.filter(p => p.status === 'En lice');
-            
-            if (activePlayers.length < poolSize) {
-              setError(`Il faut au moins ${poolSize} joueurs en lice pour créer des poules.`);
+            if (activePlayers.length < 4) {
+              setError({
+                message: 'Il faut au moins 4 joueurs en lice pour créer des poules',
+                url: 'N/A'
+              });
               return;
             }
-
             setLoading(true);
             try {
               await apiCall('pools', {
                 method: 'POST',
-                body: JSON.stringify({
-                  tournament_id: tournamentId,
-                  pool_size: poolSize
-                })
+                body: JSON.stringify({ tournament_id: tournamentId, pool_size: 4 })
               });
-
               await loadTournamentParticipants(tournamentId);
-              setError(null);
-            } catch (error) {
-              setError('Erreur lors de la création des poules');
             } finally {
               setLoading(false);
             }
           };
 
-          // Supprimer un participant
           const deleteParticipant = async (participantId, tournamentId) => {
-            if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce participant ?')) return;
-
+            if (!window.confirm('Supprimer ce participant ?')) return;
             try {
               await apiCall('participants', {
                 method: 'DELETE',
-                body: JSON.stringify({
-                  id: participantId,
-                  tournament_id: tournamentId
-                })
+                body: JSON.stringify({ id: participantId, tournament_id: tournamentId })
               });
-
               await loadTournamentParticipants(tournamentId);
               await loadInitialData();
-            } catch (error) {
-              setError('Erreur lors de la suppression du participant');
+            } catch (err) {
+              // Erreur déjà gérée
             }
           };
 
-          // Sélectionner un tournoi
-          const selectTournament = async (tournamentId) => {
-            setSelectedTournament(tournamentId);
-            await loadTournamentParticipants(tournamentId);
-          };
-
-          // Données pour les graphiques
-          const chartData = useMemo(() => {
-            if (!stats.tournament_stats) return [];
-            
-            return stats.tournament_stats.map(tournament => ({
-              name: tournament.name.split(' ')[0],
-              participants: tournament.total,
-              enLice: tournament.en_lice,
-              elimines: tournament.elimines
-            }));
-          }, [stats]);
-
-          const statusData = useMemo(() => [
-            { name: 'En lice', value: stats.active_players || 0, color: '#10b981' },
-            { name: 'Éliminés', value: stats.eliminated_players || 0, color: '#ef4444' }
-          ], [stats]);
-
-          // Vue d'ensemble
-          const renderOverview = () => (
-            <div className="space-y-6">
-              {/* Statistiques générales */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Inscrits</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.total_participants || 0}</p>
-                    </div>
-                    <span className="text-2xl">👥</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">En Lice</p>
-                      <p className="text-2xl font-bold text-green-600">{stats.active_players || 0}</p>
-                    </div>
-                    <span className="text-2xl">✅</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Éliminés</p>
-                      <p className="text-2xl font-bold text-red-600">{stats.eliminated_players || 0}</p>
-                    </div>
-                    <span className="text-2xl">❌</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Tournois</p>
-                      <p className="text-2xl font-bold text-purple-600">{stats.total_tournaments || 0}</p>
-                    </div>
-                    <span className="text-2xl">🏆</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Graphiques */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold mb-4">Participants par Tournoi</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="enLice" fill="#10b981" name="En lice" />
-                      <Bar dataKey="elimines" fill="#ef4444" name="Éliminés" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold mb-4">Répartition des Statuts</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={statusData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="value"
-                        label={(entry) => `${entry.name}: ${entry.value}`}
-                      >
-                        {statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Liste des tournois */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold">Tournois Disponibles</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
-                  {tournaments.map(tournament => {
-                    const tournamentStats = stats.tournament_stats?.find(t => t.id === tournament.id) || {};
-                    return (
-                      <div 
-                        key={tournament.id} 
-                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                        onClick={() => selectTournament(tournament.id)}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-2xl">{tournament.icon}</span>
-                          <span className="text-sm text-gray-400">👁️</span>
-                        </div>
-                        <h4 className="font-semibold text-gray-900 mb-2">{tournament.name}</h4>
-                        <div className="flex justify-between text-sm text-gray-600">
-                          <span>Inscrits: {tournamentStats.total || 0}</span>
-                          <span>En lice: {tournamentStats.en_lice || 0}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-
-          // Vue détail d'un tournoi
-          const renderTournamentDetail = () => {
-            const tournament = tournaments.find(t => t.id === selectedTournament);
-            if (!tournament) return null;
-
+          if (loading && tournaments.length === 0) {
             return (
-              <div className="space-y-6">
-                {/* En-tête du tournoi */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-3xl">{tournament.icon}</span>
-                      <div>
-                        <h2 className="text-2xl font-bold text-gray-900">{tournament.name}</h2>
-                        <p className="text-gray-600">{participants.length} participants inscrits</p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => createRandomPools(selectedTournament)}
-                        disabled={loading}
-                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2"
-                      >
-                        <span>🔀</span>
-                        <span>Créer Poules</span>
-                      </button>
-                      <button
-                        onClick={() => setSelectedTournament(null)}
-                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-                      >
-                        Retour
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Inscription d'un nouveau participant */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center">
-                    <span className="mr-2">➕</span>
-                    Inscription Nouveau Participant (Opérateur uniquement)
-                  </h3>
-                  <div className="flex space-x-3">
-                    <input
-                      type="text"
-                      placeholder="Nom du joueur"
-                      value={newParticipant}
-                      onChange={(e) => setNewParticipant(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      onKeyPress={(e) => e.key === 'Enter' && addParticipant(selectedTournament)}
-                      disabled={loading}
-                    />
-                    <button
-                      onClick={() => addParticipant(selectedTournament)}
-                      disabled={loading || !newParticipant.trim()}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      Inscrire
-                    </button>
-                  </div>
-                </div>
-
-                {/* Liste des participants */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold">Participants Inscrits</h3>
-                  </div>
-                  <div className="divide-y divide-gray-200">
-                    {participants.map(participant => (
-                      <div key={participant.id} className="p-4 flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{participant.name}</h4>
-                          <p className="text-sm text-gray-500">Inscrit le {participant.inscription_date}</p>
+              <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                <div className="text-center max-w-2xl">
+                  <div className="text-6xl mb-4">⏳</div>
+                  <div className="text-xl text-gray-700 mb-4">Chargement du dashboard...</div>
+                  <div className="bg-white rounded-lg shadow p-4 text-left">
+                    <h3 className="font-bold mb-2">📋 Journal de débogage :</h3>
+                    <div className="space-y-1 text-xs font-mono max-h-60 overflow-auto">
+                      {debugInfo.map((info, idx) => (
+                        <div key={idx} className={
+                          info.type === 'error' ? 'text-red-600' :
+                          info.type === 'success' ? 'text-green-600' :
+                          info.type === 'warning' ? 'text-yellow-600' :
+                          'text-gray-600'
+                        }>
+                          [{info.time}] {info.message}
                         </div>
-                        <div className="flex items-center space-x-3">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            participant.status === 'En lice' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {participant.status}
-                          </span>
-                          <select
-                            value={participant.status}
-                            onChange={(e) => updateParticipantStatus(participant.id, selectedTournament, e.target.value)}
-                            className="border border-gray-300 rounded px-2 py-1 text-sm"
-                            disabled={loading}
-                          >
-                            <option value="En lice">En lice</option>
-                            <option value="Éliminé">Éliminé</option>
-                          </select>
-                          <button
-                            onClick={() => deleteParticipant(participant.id, selectedTournament)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                            disabled={loading}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-
-                {/* Poules */}
-                {pools.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div className="p-6 border-b border-gray-200">
-                      <h3 className="text-lg font-semibold">Poules Générées</h3>
-                    </div>
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {pools.map(pool => (
-                          <div key={pool.id} className="border border-gray-200 rounded-lg p-4">
-                            <h4 className="font-semibold text-center mb-3 text-blue-600">{pool.name}</h4>
-                            <div className="space-y-2">
-                              {pool.participants && pool.participants.map((player, idx) => (
-                                <div key={idx} className="bg-gray-50 p-2 rounded text-center">
-                                  {player.name}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             );
-          };
+          }
 
           return (
             <div className="min-h-screen bg-gray-50 p-8">
-              {/* En-tête */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+              {error && <ErrorDisplay error={error} onClose={() => setError(null)} />}
+              
+              {/* En-tête avec bouton debug */}
+              <div className="bg-white rounded-lg shadow border p-6 mb-8">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <span className="text-3xl">🎮</span>
                     <div>
                       <h1 className="text-3xl font-bold text-gray-800">Dashboard Tournois Esports</h1>
-                      <p className="text-gray-600">Gestion des inscriptions et des tournois - Connecté à MySQL</p>
+                      <p className="text-gray-600">Mode Debug Activé</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => {
+                        setError({
+                          message: 'Logs de débogage',
+                          response: debugInfo.map(d => `[${d.time}] ${d.message}`).join('\n')
+                        });
+                      }}
+                      className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
+                    >
+                      🔍 Voir logs
+                    </button>
                     <button
                       onClick={loadInitialData}
-                      disabled={loading}
-                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                     >
-                      <span>🔄</span>
-                      <span>Actualiser</span>
+                      🔄 Actualiser
                     </button>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Dernière mise à jour</p>
-                      <p className="text-lg font-semibold">{new Date().toLocaleDateString('fr-FR')}</p>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Alertes d'erreur */}
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <span className="text-red-500 mr-2">⚠️</span>
-                    <span className="text-red-800">{error}</span>
+              {/* Reste du dashboard identique... */}
+              {!selectedTournament && (
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white rounded-lg shadow border p-6">
+                      <p className="text-sm text-gray-600">Total Inscrits</p>
+                      <p className="text-3xl font-bold">{stats.total_participants || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow border p-6">
+                      <p className="text-sm text-gray-600">En Lice</p>
+                      <p className="text-3xl font-bold text-green-600">{stats.active_players || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow border p-6">
+                      <p className="text-sm text-gray-600">Éliminés</p>
+                      <p className="text-3xl font-bold text-red-600">{stats.eliminated_players || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow border p-6">
+                      <p className="text-sm text-gray-600">Tournois</p>
+                      <p className="text-3xl font-bold text-purple-600">{stats.total_tournaments || 0}</p>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => setError(null)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    ✕
-                  </button>
+
+                  <div className="bg-white rounded-lg shadow border">
+                    <div className="p-6 border-b">
+                      <h3 className="text-lg font-semibold">Tournois Disponibles</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6">
+                      {tournaments.map(tournament => {
+                        const tStats = stats.tournament_stats?.find(t => t.id === tournament.id) || {};
+                        return (
+                          <div 
+                            key={tournament.id} 
+                            onClick={() => {
+                              setSelectedTournament(tournament.id);
+                              loadTournamentParticipants(tournament.id);
+                            }}
+                            className="border rounded-lg p-6 hover:shadow-lg cursor-pointer transition"
+                          >
+                            <div className="text-4xl mb-3">{tournament.icon}</div>
+                            <h4 className="font-bold text-lg mb-2">{tournament.name}</h4>
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <p>📊 Inscrits: <strong>{tStats.total || 0}</strong></p>
+                              <p>✅ En lice: <strong className="text-green-600">{tStats.en_lice || 0}</strong></p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Indicateur de chargement */}
-              {loading && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center">
-                  <span className="text-blue-500 mr-2">⏳</span>
-                  <span className="text-blue-800">Chargement en cours...</span>
-                </div>
-              )}
+              {selectedTournament && (() => {
+                const tournament = tournaments.find(t => t.id === selectedTournament);
+                if (!tournament) return null;
 
-              {/* Contenu principal */}
-              {selectedTournament ? renderTournamentDetail() : renderOverview()}
+                return (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-lg shadow border p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h2 className="text-2xl font-bold">{tournament.icon} {tournament.name}</h2>
+                          <p className="text-gray-600">{participants.length} participants</p>
+                        </div>
+                        <div className="space-x-3">
+                          <button
+                            onClick={() => createRandomPools(selectedTournament)}
+                            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+                          >
+                            🔀 Créer Poules
+                          </button>
+                          <button
+                            onClick={() => setSelectedTournament(null)}
+                            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+                          >
+                            ← Retour
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow border p-6">
+                      <h3 className="font-semibold mb-4">➕ Nouveau Participant</h3>
+                      <div className="flex space-x-3">
+                        <input
+                          type="text"
+                          placeholder="Nom du joueur"
+                          value={newParticipant}
+                          onChange={(e) => setNewParticipant(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addParticipant(selectedTournament)}
+                          className="flex-1 px-4 py-2 border rounded-lg"
+                        />
+                        <button
+                          onClick={() => addParticipant(selectedTournament)}
+                          disabled={!newParticipant.trim()}
+                          className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Inscrire
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow border">
+                      <div className="p-6 border-b">
+                        <h3 className="font-semibold">Participants ({participants.length})</h3>
+                      </div>
+                      <div className="divide-y">
+                        {participants.length === 0 ? (
+                          <div className="p-8 text-center text-gray-500">
+                            Aucun participant
+                          </div>
+                        ) : (
+                          participants.map(p => (
+                            <div key={p.id} className="p-4 flex justify-between items-center">
+                              <div>
+                                <h4 className="font-medium">{p.name}</h4>
+                                <p className="text-sm text-gray-500">{p.inscription_date}</p>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <span className={`px-4 py-1 rounded-full text-sm ${
+                                  p.status === 'En lice' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {p.status}
+                                </span>
+                                <select
+                                  value={p.status}
+                                  onChange={(e) => updateParticipantStatus(p.id, selectedTournament, e.target.value)}
+                                  className="border rounded px-3 py-1"
+                                >
+                                  <option value="En lice">En lice</option>
+                                  <option value="Éliminé">Éliminé</option>
+                                </select>
+                                <button
+                                  onClick={() => deleteParticipant(p.id, selectedTournament)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {pools.length > 0 && (
+                      <div className="bg-white rounded-lg shadow border">
+                        <div className="p-6 border-b">
+                          <h3 className="font-semibold">Poules Générées</h3>
+                        </div>
+                        <div className="p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {pools.map(pool => (
+                              <div key={pool.id} className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                                <h4 className="font-bold text-center text-blue-700 mb-3">{pool.name}</h4>
+                                <div className="space-y-2">
+                                  {pool.participants && pool.participants.map((player, idx) => (
+                                    <div key={idx} className="bg-white p-3 rounded shadow-sm text-center">
+                                      {player.name}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
-        };
+        }
 
-        // Rendu de l'application
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<TournamentDashboard />);
+        try {
+          const root = ReactDOM.createRoot(document.getElementById('root'));
+          root.render(<TournamentDashboard />);
+          document.getElementById('init-status').innerHTML = '✅ Application démarrée avec succès';
+        } catch (error) {
+          document.getElementById('root').innerHTML = `
+            <div style="padding: 40px; max-width: 800px; margin: 0 auto;">
+              <h1 style="color: #dc2626; font-size: 24px; margin-bottom: 20px;">❌ ERREUR CRITIQUE</h1>
+              <div style="background: #fee2e2; border: 2px solid #dc2626; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="font-weight: bold;">Message:</p>
+                <p style="font-family: monospace;">${error.message}</p>
+              </div>
+              <div style="background: #f3f4f6; border: 1px solid #9ca3af; padding: 20px; border-radius: 8px;">
+                <p style="font-weight: bold;">Stack:</p>
+                <pre style="font-size: 12px; overflow: auto;">${error.stack}</pre>
+              </div>
+            </div>
+          `;
+        }
     </script>
 </body>
 </html>
