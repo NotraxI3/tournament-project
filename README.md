@@ -243,3 +243,4 @@ Ce projet est libre d'utilisation pour des fins éducatives et personnelles.
 **Auteur** : Dashboard Tournois Esports
 
 Bon tournoi ! 🎮🏆
+# tournament-project
