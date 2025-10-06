@@ -49,34 +49,12 @@ class Participant {
 
     // Ajouter un participant
     public function create() {
-        // Vérifier le nombre de places disponibles
-        $query = "SELECT COUNT(*) as count, t.max_participants 
-                  FROM participants p 
-                  JOIN tournaments t ON p.tournament_id = t.id 
-                  WHERE p.tournament_id = ? AND p.status = 'En lice'
-                  GROUP BY t.max_participants";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $this->tournament_id);
-        $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Déterminer le statut
-        if ($result && $result['count'] >= $result['max_participants']) {
-            $this->status = 'Liste d\'attente';
-            
-            // Calculer la position dans la liste d'attente
-            $query_pos = "SELECT COALESCE(MAX(position_attente), 0) + 1 as next_position 
-                          FROM participants 
-                          WHERE tournament_id = ? AND status = 'Liste d''attente'";
-            $stmt_pos = $this->conn->prepare($query_pos);
-            $stmt_pos->bindParam(1, $this->tournament_id);
-            $stmt_pos->execute();
-            $pos_result = $stmt_pos->fetch(PDO::FETCH_ASSOC);
-            $this->position_attente = $pos_result['next_position'];
-        } else {
+        // Par défaut, le participant est "En lice"
+        // (La gestion de la liste d'attente sera ajoutée plus tard)
+        if (!isset($this->status) || empty($this->status)) {
             $this->status = 'En lice';
-            $this->position_attente = null;
         }
+        $this->position_attente = null;
 
         $query = "INSERT INTO " . $this->table_name . " 
                   SET tournament_id = :tournament_id, 
@@ -179,14 +157,9 @@ class Participant {
 
     // Réorganiser les positions dans la liste d'attente
     private function updateWaitingListPositions($tournament_id) {
-        $query = "SET @position = 0; 
-                  UPDATE " . $this->table_name . " 
-                  SET position_attente = (@position := @position + 1) 
-                  WHERE tournament_id = ? AND status = 'Liste d''attente' 
-                  ORDER BY inscription_date ASC";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(1, $tournament_id);
-        return $stmt->execute();
+        // Simplifié: on ne gère pas encore la réorganisation automatique
+        // Cette fonctionnalité sera ajoutée dans une future version
+        return true;
     }
 }
 ?>

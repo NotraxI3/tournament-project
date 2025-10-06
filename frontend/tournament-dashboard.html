@@ -116,7 +116,12 @@
           const [pools, setPools] = useState([]);
           const [stats, setStats] = useState({});
           const [selectedTournament, setSelectedTournament] = useState(null);
-          const [newParticipant, setNewParticipant] = useState('');
+          const [newParticipant, setNewParticipant] = useState({
+            prenom: '',
+            nom: '',
+            age: '',
+            telephone: ''
+          });
           const [loading, setLoading] = useState(true);
           const [error, setError] = useState(null);
           const [debugInfo, setDebugInfo] = useState([]);
@@ -242,19 +247,29 @@
           };
 
           const addParticipant = async (tournamentId) => {
-            if (!newParticipant.trim()) return;
+            if (!newParticipant.prenom.trim() || !newParticipant.nom.trim() || 
+                !newParticipant.age || !newParticipant.telephone.trim()) {
+              setError({
+                message: 'Tous les champs sont obligatoires (Prénom, Nom, Âge, Téléphone)',
+                url: 'N/A'
+              });
+              return;
+            }
             setLoading(true);
             try {
               await apiCall('participants', {
                 method: 'POST',
                 body: JSON.stringify({
                   tournament_id: tournamentId,
-                  name: newParticipant.trim(),
+                  prenom: newParticipant.prenom.trim(),
+                  nom: newParticipant.nom.trim(),
+                  age: parseInt(newParticipant.age),
+                  telephone: newParticipant.telephone.trim(),
                   status: 'En lice',
                   inscription_date: new Date().toISOString().split('T')[0]
                 })
               });
-              setNewParticipant('');
+              setNewParticipant({ prenom: '', nom: '', age: '', telephone: '' });
               await loadTournamentParticipants(tournamentId);
               await loadInitialData();
             } finally {
@@ -459,23 +474,46 @@
 
                     <div className="bg-white rounded-lg shadow border p-6">
                       <h3 className="font-semibold mb-4">➕ Nouveau Participant</h3>
-                      <div className="flex space-x-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <input
                           type="text"
-                          placeholder="Nom du joueur"
-                          value={newParticipant}
-                          onChange={(e) => setNewParticipant(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && addParticipant(selectedTournament)}
-                          className="flex-1 px-4 py-2 border rounded-lg"
+                          placeholder="Prénom *"
+                          value={newParticipant.prenom}
+                          onChange={(e) => setNewParticipant({...newParticipant, prenom: e.target.value})}
+                          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
-                        <button
-                          onClick={() => addParticipant(selectedTournament)}
-                          disabled={!newParticipant.trim()}
-                          className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                        >
-                          Inscrire
-                        </button>
+                        <input
+                          type="text"
+                          placeholder="Nom *"
+                          value={newParticipant.nom}
+                          onChange={(e) => setNewParticipant({...newParticipant, nom: e.target.value})}
+                          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Âge *"
+                          min="1"
+                          max="120"
+                          value={newParticipant.age}
+                          onChange={(e) => setNewParticipant({...newParticipant, age: e.target.value})}
+                          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <input
+                          type="tel"
+                          placeholder="Téléphone *"
+                          value={newParticipant.telephone}
+                          onChange={(e) => setNewParticipant({...newParticipant, telephone: e.target.value})}
+                          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
                       </div>
+                      <button
+                        onClick={() => addParticipant(selectedTournament)}
+                        disabled={!newParticipant.prenom.trim() || !newParticipant.nom.trim() || 
+                                  !newParticipant.age || !newParticipant.telephone.trim()}
+                        className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                      >
+                        ✓ Inscrire le participant
+                      </button>
                     </div>
 
                     <div className="bg-white rounded-lg shadow border">
@@ -491,8 +529,12 @@
                           participants.map(p => (
                             <div key={p.id} className="p-4 flex justify-between items-center">
                               <div>
-                                <h4 className="font-medium">{p.name}</h4>
-                                <p className="text-sm text-gray-500">{p.inscription_date}</p>
+                                <h4 className="font-medium text-lg">{p.prenom} {p.nom}</h4>
+                                <div className="text-sm text-gray-500 space-x-3">
+                                  <span>🎂 {p.age} ans</span>
+                                  <span>📞 {p.telephone}</span>
+                                  <span>📅 {p.inscription_date}</span>
+                                </div>
                               </div>
                               <div className="flex items-center space-x-3">
                                 <span className={`px-4 py-1 rounded-full text-sm ${

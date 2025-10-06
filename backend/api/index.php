@@ -65,9 +65,13 @@ try {
                 // Ajouter un nouveau participant
                 $data = json_decode(file_get_contents("php://input"), true);
                 
-                if (isset($data['tournament_id']) && isset($data['name'])) {
+                if (isset($data['tournament_id']) && isset($data['prenom']) && 
+                    isset($data['nom']) && isset($data['age']) && isset($data['telephone'])) {
                     $participant->tournament_id = $data['tournament_id'];
-                    $participant->name = $data['name'];
+                    $participant->prenom = $data['prenom'];
+                    $participant->nom = $data['nom'];
+                    $participant->age = $data['age'];
+                    $participant->telephone = $data['telephone'];
                     $participant->status = $data['status'] ?? 'En lice';
                     $participant->inscription_date = $data['inscription_date'] ?? date('Y-m-d');
                     
@@ -84,7 +88,7 @@ try {
                     }
                 } else {
                     http_response_code(400);
-                    echo json_encode(array("message" => "Données manquantes."));
+                    echo json_encode(array("message" => "Données manquantes (prénom, nom, âge, téléphone requis)."));
                 }
                 
             } elseif ($method === 'PUT') {

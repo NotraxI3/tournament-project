@@ -77,34 +77,28 @@ class Pool {
 
     // Récupérer les poules d'un tournoi
     public function getByTournament($tournament_id) {
-        $query = "SELECT p.*, 
-                         GROUP_CONCAT(
-                             JSON_OBJECT(
-                                 'id', pt.id,
-                                 'name', pt.name,
-                                 'status', pt.status
-                             )
-                         ) as participants
-                  FROM pools p
-                  LEFT JOIN pool_participants pp ON p.id = pp.pool_id
-                  LEFT JOIN participants pt ON pp.participant_id = pt.id
-                  WHERE p.tournament_id = ?
-                  GROUP BY p.id
-                  ORDER BY p.pool_number";
-        
+        // Récupérer d'abord toutes les poules
+        $query = "SELECT * FROM pools WHERE tournament_id = ? ORDER BY pool_number";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $tournament_id);
         $stmt->execute();
-        
         $pools = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Parser les participants JSON
+        // Pour chaque poule, récupérer ses participants
         foreach ($pools as &$pool) {
-            if ($pool['participants']) {
-                $pool['participants'] = array_map('json_decode', explode(',', $pool['participants']));
-            } else {
-                $pool['participants'] = [];
+            $query = "SELECT p.id, p.prenom, p.nom, p.age, p.telephone, p.status 
+                      FROM participants p
+                      INNER JOIN pool_participants pp ON p.id = pp.participant_id
+                      WHERE pp.pool_id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(1, $pool['id']);
+            $stmt->execute();
+            $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // Ajouter le nom complet pour l'affichage
+            foreach ($participants as &$p) {
+                $p['name'] = $p['prenom'] . ' ' . $p['nom'];
             }
+            $pool['participants'] = $participants;
         }
         
         return $pools;
